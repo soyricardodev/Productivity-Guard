@@ -3,185 +3,185 @@ import ReactDOM from 'react-dom/client';
 import browser from 'webextension-polyfill';
 import { isSocialMediaSite } from './utils/social-media-sites';
 import CommitmentModal from './components/commitment-modal';
+import MiniTimer from './components/mini-timer';
 
-// Modal container ID
+// Container IDs
 const MODAL_CONTAINER_ID = 'productivity-guard-modal-container';
+const MINI_TIMER_CONTAINER_ID = 'productivity-guard-mini-timer-container';
 
-class ContentScript {
-  private modalRoot: HTMLDivElement | null = null;
-  private reactRoot: ReactDOM.Root | null = null;
-  private timerId: number | null = null;
-  private timerEndTime: number | null = null;
-  private commitment: string | null = null;
-  
-  constructor() {
-    this.initialize();
+// Create a functional content script
+const initializeContentScript = async () => {
+  // Only initialize on social media sites
+  if (!isSocialMediaSite(window.location.href)) {
+    return;
   }
   
-  private async initialize() {
-    // Only initialize on social media sites
-    if (!isSocialMediaSite(window.location.href)) {
-      return;
+  // Create containers
+  const modalContainer = createContainer(MODAL_CONTAINER_ID, {
+    position: 'fixed',
+    top: '0',
+    left: '0',
+    right: '0',
+    bottom: '0',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: '9999999',
+  });
+  
+  const miniTimerContainer = createContainer(MINI_TIMER_CONTAINER_ID, {
+    position: 'fixed',
+    zIndex: '9999998',
+    pointerEvents: 'none'
+  });
+  
+  // Create React roots
+  const modalRoot = ReactDOM.createRoot(modalContainer);
+  const miniTimerRoot = ReactDOM.createRoot(miniTimerContainer);
+  
+  // Listen for messages from background script
+  browser.runtime.onMessage.addListener((message) => {
+    if (message.type === 'TIMER_COMPLETE') {
+      showTimerCompleteModal(modalRoot);
     }
+    return true;
+  });
+  
+  // Check if any timer is already running
+  const { timerEndTime, commitment } = await browser.storage.local.get(['timerEndTime', 'commitment']);
+  
+  if (timerEndTime && Date.now() < timerEndTime) {
+    // Timer is still running - show timer active modal on all social media sites
+    showTimerActiveModal(modalRoot, timerEndTime, commitment || '');
+    showMiniTimer(miniTimerRoot, timerEndTime);
+  } else {
+    // No active timer - show initial commitment modal
+    showInitialModal(modalRoot);
+  }
+};
+
+// Helper function to create container
+const createContainer = (id: string, styles: Record<string, string>) => {
+  // Create container if it doesn't exist
+  if (!document.getElementById(id)) {
+    const container = document.createElement('div');
+    container.id = id;
     
-    // Create modal container
-    this.createModalContainer();
-    
-    // Listen for messages from background script
-    browser.runtime.onMessage.addListener((message) => {
-      if (message.type === 'TIMER_COMPLETE') {
-        this.showTimerCompleteModal();
-      }
-      return true;
+    // Apply styles
+    Object.entries(styles).forEach(([key, value]) => {
+      container.style[key as any] = value;
     });
     
-    // Check if any timer is already running
-    const { timerEndTime, commitment } = await browser.storage.local.get(['timerEndTime', 'commitment']);
-    
-    if (timerEndTime && Date.now() < timerEndTime) {
-      // Timer is still running - show timer active modal on all social media sites
-      this.timerEndTime = timerEndTime;
-      this.commitment = commitment || null;
-      this.showTimerActiveModal();
-    } else {
-      // No active timer - show initial commitment modal
-      this.showInitialModal();
-    }
+    document.body.appendChild(container);
+    return container;
   }
   
-  private createModalContainer() {
-    // Create container for the modal if it doesn't exist
-    if (!document.getElementById(MODAL_CONTAINER_ID)) {
-      this.modalRoot = document.createElement('div');
-      this.modalRoot.id = MODAL_CONTAINER_ID;
-      
-      // Add some base styles to ensure the modal container is in the center
-      this.modalRoot.style.position = 'fixed';
-      this.modalRoot.style.top = '0';
-      this.modalRoot.style.left = '0';
-      this.modalRoot.style.right = '0';
-      this.modalRoot.style.bottom = '0';
-      this.modalRoot.style.display = 'flex';
-      this.modalRoot.style.alignItems = 'center';
-      this.modalRoot.style.justifyContent = 'center';
-      this.modalRoot.style.zIndex = '9999999';
-      
-      document.body.appendChild(this.modalRoot);
-      this.reactRoot = ReactDOM.createRoot(this.modalRoot);
-    }
+  return document.getElementById(id) as HTMLDivElement;
+};
+
+// Show initial commitment modal
+const showInitialModal = (root: ReactDOM.Root) => {
+  root.render(
+    <React.StrictMode>
+      <CommitmentModal
+        isOpen={true}
+        onClose={handleClose}
+        onConfirm={handleConfirm}
+      />
+    </React.StrictMode>
+  );
+};
+
+// Show timer active modal
+const showTimerActiveModal = (root: ReactDOM.Root, endTime: number, activeCommitment: string) => {
+  // Calculate remaining time
+  const remainingMinutes = Math.max(0, Math.floor((endTime - Date.now()) / (60 * 1000)));
+  
+  root.render(
+    <React.StrictMode>
+      <CommitmentModal
+        isOpen={true}
+        onClose={handleClose}
+        onConfirm={handleClose}
+        isTimerActive={true}
+        initialTime={remainingMinutes}
+        activeCommitment={activeCommitment}
+      />
+    </React.StrictMode>
+  );
+};
+
+// Show mini timer
+const showMiniTimer = (root: ReactDOM.Root, endTime: number) => {
+  root.render(
+    <React.StrictMode>
+      <MiniTimer 
+        timerEndTime={endTime}
+        onTimerComplete={handleTimerComplete}
+      />
+    </React.StrictMode>
+  );
+};
+
+// Show timer complete modal
+const showTimerCompleteModal = (root: ReactDOM.Root) => {
+  root.render(
+    <React.StrictMode>
+      <CommitmentModal
+        isOpen={true}
+        onClose={handleClose}
+        onConfirm={handleTimerComplete}
+        isTimerComplete={true}
+      />
+    </React.StrictMode>
+  );
+};
+
+// Handle confirm button click
+const handleConfirm = async (minutes: number, commitment: string) => {
+  const endTime = Date.now() + minutes * 60 * 1000;
+  
+  // Save timer end time to storage
+  await browser.storage.local.set({ 
+    timerEndTime: endTime,
+    commitment: commitment,
+  });
+  
+  // Hide the modal
+  const modalContainer = document.getElementById(MODAL_CONTAINER_ID);
+  if (modalContainer) {
+    const modalRoot = ReactDOM.createRoot(modalContainer);
+    modalRoot.render(null);
   }
   
-  private showInitialModal() {
-    if (!this.reactRoot) return;
-    
-    this.reactRoot.render(
-      <React.StrictMode>
-        <CommitmentModal
-          isOpen={true}
-          onClose={this.handleClose}
-          onConfirm={this.handleConfirm}
-        />
-      </React.StrictMode>
-    );
+  // Show mini timer
+  const miniTimerContainer = document.getElementById(MINI_TIMER_CONTAINER_ID);
+  if (miniTimerContainer) {
+    const miniTimerRoot = ReactDOM.createRoot(miniTimerContainer);
+    showMiniTimer(miniTimerRoot, endTime);
   }
   
-  private showTimerActiveModal() {
-    if (!this.reactRoot || !this.timerEndTime) return;
-    
-    // Calculate remaining time
-    const remainingMinutes = Math.max(0, Math.floor((this.timerEndTime - Date.now()) / (60 * 1000)));
-    
-    this.reactRoot.render(
-      <React.StrictMode>
-        <CommitmentModal
-          isOpen={true}
-          onClose={this.handleClose}
-          onConfirm={this.handleClose}
-          isTimerActive={true}
-          initialTime={remainingMinutes}
-          activeCommitment={this.commitment || ''}
-        />
-      </React.StrictMode>
-    );
-    
-    // Start timer to update the display
-    this.startTimer(this.timerEndTime);
-  }
+  // Notify background script
+  browser.runtime.sendMessage({ 
+    type: 'TIMER_STARTED', 
+    data: { minutes, endTime, commitment } 
+  });
+};
+
+// Handle timer complete
+const handleTimerComplete = async () => {
+  // Clear timer data
+  await browser.storage.local.remove(['timerEndTime', 'commitment']);
   
-  private showTimerCompleteModal() {
-    if (!this.reactRoot) return;
-    
-    this.reactRoot.render(
-      <React.StrictMode>
-        <CommitmentModal
-          isOpen={true}
-          onClose={this.handleClose}
-          onConfirm={this.handleTimerComplete}
-          isTimerComplete={true}
-        />
-      </React.StrictMode>
-    );
-  }
-  
-  private startTimer = (endTime: number) => {
-    this.timerEndTime = endTime;
-    
-    // Clear any existing timer
-    if (this.timerId !== null) {
-      window.clearTimeout(this.timerId);
-    }
-    
-    const remainingTime = endTime - Date.now();
-    
-    if (remainingTime <= 0) {
-      this.showTimerCompleteModal();
-      return;
-    }
-    
-    // Set timeout to show timer complete modal
-    this.timerId = window.setTimeout(() => {
-      this.showTimerCompleteModal();
-    }, remainingTime);
-  }
-  
-  private handleConfirm = async (minutes: number, commitment: string) => {
-    const endTime = Date.now() + minutes * 60 * 1000;
-    this.commitment = commitment;
-    
-    // Save timer end time to storage
-    await browser.storage.local.set({ 
-      timerEndTime: endTime,
-      commitment: commitment,
-    });
-    
-    // Start the timer
-    this.startTimer(endTime);
-    
-    // Hide the modal
-    if (this.reactRoot) {
-      this.reactRoot.render(null);
-    }
-    
-    // Notify background script
-    browser.runtime.sendMessage({ 
-      type: 'TIMER_STARTED', 
-      data: { minutes, endTime } 
-    });
-  }
-  
-  private handleTimerComplete = async () => {
-    // Clear timer data
-    await browser.storage.local.remove(['timerEndTime', 'commitment']);
-    
-    // Close the tab/window
-    browser.runtime.sendMessage({ type: 'CLOSE_TAB' });
-  }
-  
-  private handleClose = () => {
-    // Close the tab/window
-    browser.runtime.sendMessage({ type: 'CLOSE_TAB' });
-  }
-}
+  // Close the tab/window
+  browser.runtime.sendMessage({ type: 'CLOSE_TAB' });
+};
+
+// Handle close button click
+const handleClose = () => {
+  // Close the tab/window
+  browser.runtime.sendMessage({ type: 'CLOSE_TAB' });
+};
 
 // Start the content script
-new ContentScript();
+initializeContentScript();
