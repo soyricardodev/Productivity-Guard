@@ -8,7 +8,9 @@ type CommitmentModalProps = {
   onClose: () => void;
   onConfirm: (minutes: number, commitment: string) => void;
   isTimerComplete?: boolean;
+  isTimerActive?: boolean;
   initialTime?: number;
+  activeCommitment?: string;
 };
 
 const CommitmentModal = ({
@@ -16,25 +18,76 @@ const CommitmentModal = ({
   onClose,
   onConfirm,
   isTimerComplete = false,
+  isTimerActive = false,
   initialTime = 5,
+  activeCommitment = '',
 }: CommitmentModalProps) => {
   const [minutes, setMinutes] = useState<number>(initialTime);
   const [commitment, setCommitment] = useState<string>("");
+  const [remainingTime, setRemainingTime] = useState<string>("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const timerRef = useRef<number | null>(null);
+  const timerEndTimeRef = useRef<number | null>(null);
   
   // Focus the input when modal opens
   useEffect(() => {
-    if (isOpen && inputRef.current && !isTimerComplete) {
+    if (isOpen && inputRef.current && !isTimerComplete && !isTimerActive) {
       inputRef.current.focus();
     }
-  }, [isOpen, isTimerComplete]);
+  }, [isOpen, isTimerComplete, isTimerActive]);
 
   // Generate commitment text based on selected time
   useEffect(() => {
-    if (!isTimerComplete) {
+    if (!isTimerComplete && !isTimerActive) {
       setCommitment(`I want to lose ${minutes} minutes of my life instead of being productive`);
+    } else if (isTimerActive && activeCommitment) {
+      setCommitment(activeCommitment);
     }
-  }, [minutes, isTimerComplete]);
+  }, [minutes, isTimerComplete, isTimerActive, activeCommitment]);
+
+  // Set up real-time timer for active timer
+  useEffect(() => {
+    if (isTimerActive && initialTime > 0) {
+      // Calculate end time based on initialTime (in minutes)
+      const now = Date.now();
+      const endTime = now + (initialTime * 60 * 1000);
+      timerEndTimeRef.current = endTime;
+      
+      // Update timer immediately
+      updateRemainingTime();
+      
+      // Set interval to update timer every second
+      timerRef.current = window.setInterval(updateRemainingTime, 1000);
+    }
+    
+    return () => {
+      if (timerRef.current) {
+        window.clearInterval(timerRef.current);
+      }
+    };
+  }, [isTimerActive, initialTime]);
+  
+  // Function to update the remaining time display
+  const updateRemainingTime = () => {
+    if (!timerEndTimeRef.current) return;
+    
+    const now = Date.now();
+    const timeLeft = timerEndTimeRef.current - now;
+    
+    if (timeLeft <= 0) {
+      setRemainingTime('Time\'s up!');
+      if (timerRef.current) {
+        window.clearInterval(timerRef.current);
+      }
+      return;
+    }
+    
+    // Format time remaining
+    const mins = Math.floor(timeLeft / (1000 * 60));
+    const secs = Math.floor((timeLeft % (1000 * 60)) / 1000);
+    
+    setRemainingTime(`${mins}m ${secs}s remaining`);
+  };
 
   const handleConfirm = () => {
     onConfirm(minutes, commitment);
@@ -61,10 +114,12 @@ const CommitmentModal = ({
         <h2 className="modal-title">
           {isTimerComplete 
             ? "Time's up!" 
-            : "Hey! How much time do you want to lose?"}
+            : isTimerActive
+              ? "You already have an active timer!"
+              : "Hey! How much time do you want to lose?"}
         </h2>
         
-        {!isTimerComplete && (
+        {!isTimerComplete && !isTimerActive && (
           <div className="form-group">
             <label 
               htmlFor="time-select" 
@@ -88,12 +143,26 @@ const CommitmentModal = ({
           </div>
         )}
         
+        {isTimerActive && (
+          <div className="form-group">
+            <p className="timer-message">
+              You have an active timer on another social media site.
+            </p>
+            <div className="active-timer-display">
+              {remainingTime}
+            </div>
+            <p className="timer-message">
+              All social media sites are blocked until your timer expires.
+            </p>
+          </div>
+        )}
+        
         <div className="form-group">
           <label 
             htmlFor="commitment-input" 
             className="form-label"
           >
-            Type your commitment:
+            {isTimerActive ? "Your commitment:" : "Type your commitment:"}
           </label>
           <input
             ref={inputRef}
@@ -105,7 +174,7 @@ const CommitmentModal = ({
             className="form-input"
             placeholder="Type your commitment here"
             aria-label="Type your commitment"
-            disabled={isTimerComplete}
+            disabled={isTimerComplete || isTimerActive}
           />
         </div>
         
@@ -123,10 +192,20 @@ const CommitmentModal = ({
           <button
             onClick={handleConfirm}
             className="button button-primary"
-            aria-label={isTimerComplete ? "Accept commitment and close site" : "Confirm time commitment"}
+            aria-label={
+              isTimerComplete 
+                ? "Accept commitment and close site" 
+                : isTimerActive 
+                  ? "Acknowledge and exit site" 
+                  : "Confirm time commitment"
+            }
             tabIndex={0}
           >
-            {isTimerComplete ? "Accept & Close" : "Start Timer"}
+            {isTimerComplete 
+              ? "Accept & Close" 
+              : isTimerActive 
+                ? "Acknowledge & Exit" 
+                : "Start Timer"}
           </button>
         </div>
       </div>
