@@ -25,6 +25,7 @@ const CommitmentModal = ({
   const [minutes, setMinutes] = useState<number>(initialTime);
   const [commitment, setCommitment] = useState<string>("");
   const [remainingTime, setRemainingTime] = useState<string>("");
+  const [commitmentError, setCommitmentError] = useState<string>("");
   const inputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<number | null>(null);
   const timerEndTimeRef = useRef<number | null>(null);
@@ -36,14 +37,12 @@ const CommitmentModal = ({
     }
   }, [isOpen, isTimerComplete, isTimerActive]);
 
-  // Generate commitment text based on selected time
+  // Reset error when commitment changes
   useEffect(() => {
-    if (!isTimerComplete && !isTimerActive) {
-      setCommitment(`I want to lose ${minutes} minutes of my life instead of being productive`);
-    } else if (isTimerActive && activeCommitment) {
-      setCommitment(activeCommitment);
+    if (commitment.trim().length > 0) {
+      setCommitmentError("");
     }
-  }, [minutes, isTimerComplete, isTimerActive, activeCommitment]);
+  }, [commitment]);
 
   // Set up real-time timer for active timer
   useEffect(() => {
@@ -90,6 +89,15 @@ const CommitmentModal = ({
   };
 
   const handleConfirm = () => {
+    // Validate commitment
+    if (!isTimerComplete && !isTimerActive && commitment.trim().length === 0) {
+      setCommitmentError("Please write your commitment before proceeding");
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
+      return;
+    }
+    
     onConfirm(minutes, commitment);
   };
 
@@ -163,6 +171,9 @@ const CommitmentModal = ({
             className="form-label"
           >
             {isTimerActive ? "Your commitment:" : "Type your commitment:"}
+            {!isTimerActive && !isTimerComplete && (
+              <span className="required-indicator">*</span>
+            )}
           </label>
           <input
             ref={inputRef}
@@ -171,11 +182,15 @@ const CommitmentModal = ({
             value={commitment}
             onChange={(e) => setCommitment(e.target.value)}
             onKeyDown={handleKeyDown}
-            className="form-input"
-            placeholder="Type your commitment here"
+            className={`form-input ${commitmentError ? 'input-error' : ''}`}
+            placeholder="Write why you're taking a break..."
             aria-label="Type your commitment"
             disabled={isTimerComplete || isTimerActive}
+            required={!isTimerComplete && !isTimerActive}
           />
+          {commitmentError && (
+            <p className="error-message">{commitmentError}</p>
+          )}
         </div>
         
         <div className="button-group">
