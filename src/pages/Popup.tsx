@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import browser from 'webextension-polyfill';
 import "./Popup.css";
 
@@ -12,7 +12,48 @@ export default function() {
   const [isBlocked, setIsBlocked] = useState<boolean>(false);
   const [timerInfo, setTimerInfo] = useState<TimerInfo>({ timerEndTime: null, commitment: null });
   const [timeRemaining, setTimeRemaining] = useState<string>('');
+  const timerRef = useRef<number | null>(null);
 
+  // Function to update the time remaining display
+  const updateTimeRemaining = () => {
+    if (!timerInfo.timerEndTime) return;
+    
+    const now = Date.now();
+    const timeLeft = timerInfo.timerEndTime - now;
+    
+    if (timeLeft <= 0) {
+      setTimeRemaining('Time\'s up!');
+      return;
+    }
+    
+    // Format time remaining
+    const minutes = Math.floor(timeLeft / (1000 * 60));
+    const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+    
+    setTimeRemaining(`${minutes}m ${seconds}s`);
+  };
+
+  // Effect to set up the timer and clean it up
+  useEffect(() => {
+    // Clear any existing interval
+    if (timerRef.current) {
+      window.clearInterval(timerRef.current);
+    }
+    
+    // Set up a new interval if we have timer info
+    if (timerInfo.timerEndTime) {
+      updateTimeRemaining(); // Update immediately
+      timerRef.current = window.setInterval(updateTimeRemaining, 1000);
+    }
+    
+    return () => {
+      if (timerRef.current) {
+        window.clearInterval(timerRef.current);
+      }
+    };
+  }, [timerInfo.timerEndTime]);
+
+  // Effect to get initial data
   useEffect(() => {
     // Get the current tab information
     const getCurrentTab = async () => {
@@ -45,32 +86,27 @@ export default function() {
     getCurrentTab();
     getTimerInfo();
     
-    // Set up timer update interval
-    const intervalId = setInterval(updateTimeRemaining, 1000);
+    // Listen for storage changes to update timer in real-time
+    const handleStorageChange = (changes: { [key: string]: browser.Storage.StorageChange }, areaName: string) => {
+      if (areaName === 'local') {
+        if (changes.timerEndTime) {
+          const newTimerEndTime = changes.timerEndTime.newValue;
+          const newCommitment = changes.commitment?.newValue || timerInfo.commitment;
+          
+          setTimerInfo({
+            timerEndTime: newTimerEndTime,
+            commitment: newCommitment
+          });
+        }
+      }
+    };
+    
+    browser.storage.onChanged.addListener(handleStorageChange);
     
     return () => {
-      clearInterval(intervalId);
+      browser.storage.onChanged.removeListener(handleStorageChange);
     };
   }, []);
-  
-  // Update the time remaining display
-  const updateTimeRemaining = () => {
-    if (timerInfo.timerEndTime) {
-      const now = Date.now();
-      const timeLeft = timerInfo.timerEndTime - now;
-      
-      if (timeLeft <= 0) {
-        setTimeRemaining('Time\'s up!');
-        return;
-      }
-      
-      // Format time remaining
-      const minutes = Math.floor(timeLeft / (1000 * 60));
-      const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
-      
-      setTimeRemaining(`${minutes}m ${seconds}s`);
-    }
-  };
   
   // Handle reset timer button click
   const handleResetTimer = async () => {
