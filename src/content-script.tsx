@@ -3,7 +3,6 @@ import ReactDOM from 'react-dom/client';
 import browser from 'webextension-polyfill';
 import { isSocialMediaSite } from './utils/social-media-sites';
 import CommitmentModal from './components/commitment-modal';
-import './index.css'; // Import CSS
 
 // Modal container ID
 const MODAL_CONTAINER_ID = 'productivity-guard-modal-container';
@@ -13,6 +12,7 @@ class ContentScript {
   private reactRoot: ReactDOM.Root | null = null;
   private timerId: number | null = null;
   private timerEndTime: number | null = null;
+  private commitment: string | null = null;
   
   constructor() {
     this.initialize();
@@ -35,14 +35,16 @@ class ContentScript {
       return true;
     });
     
-    // Check if a timer is already running
-    const { timerEndTime } = await browser.storage.local.get('timerEndTime');
+    // Check if any timer is already running
+    const { timerEndTime, commitment } = await browser.storage.local.get(['timerEndTime', 'commitment']);
     
     if (timerEndTime && Date.now() < timerEndTime) {
-      // Timer is still running
-      this.startTimer(timerEndTime);
+      // Timer is still running - show timer active modal on all social media sites
+      this.timerEndTime = timerEndTime;
+      this.commitment = commitment || null;
+      this.showTimerActiveModal();
     } else {
-      // Show initial commitment modal
+      // No active timer - show initial commitment modal
       this.showInitialModal();
     }
   }
@@ -83,6 +85,29 @@ class ContentScript {
     );
   }
   
+  private showTimerActiveModal() {
+    if (!this.reactRoot || !this.timerEndTime) return;
+    
+    // Calculate remaining time
+    const remainingMinutes = Math.max(0, Math.floor((this.timerEndTime - Date.now()) / (60 * 1000)));
+    
+    this.reactRoot.render(
+      <React.StrictMode>
+        <CommitmentModal
+          isOpen={true}
+          onClose={this.handleClose}
+          onConfirm={this.handleClose}
+          isTimerActive={true}
+          initialTime={remainingMinutes}
+          activeCommitment={this.commitment || ''}
+        />
+      </React.StrictMode>
+    );
+    
+    // Start timer to update the display
+    this.startTimer(this.timerEndTime);
+  }
+  
   private showTimerCompleteModal() {
     if (!this.reactRoot) return;
     
@@ -121,6 +146,7 @@ class ContentScript {
   
   private handleConfirm = async (minutes: number, commitment: string) => {
     const endTime = Date.now() + minutes * 60 * 1000;
+    this.commitment = commitment;
     
     // Save timer end time to storage
     await browser.storage.local.set({ 
