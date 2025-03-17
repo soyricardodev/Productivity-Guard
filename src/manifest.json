@@ -1,0 +1,57 @@
+{
+  "{{chrome}}.manifest_version": 3,
+  "{{firefox}}.manifest_version": 2,
+  "name": "Productivity Guard",
+  "version": "1.0.0",
+  "description": "Guard your productivity by limiting time on social media sites",
+  "icons": {
+    "16": "icon/16.png",
+    "32": "icon/32.png",
+    "48": "icon/48.png",
+    "96": "icon/96.png",
+    "128": "icon/128.png"
+  },
+  "{{chrome}}.action": {
+    "default_popup": "src/popup.html"
+  },
+  "{{firefox}}.browser_action": {
+    "default_popup": "src/popup.html"
+  },
+  "background": {
+    "{{chrome}}.service_worker": "src/background.ts",
+    "{{firefox}}.scripts": ["src/background.ts"]
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.facebook.com/*", "*://*.twitter.com/*", "*://*.instagram.com/*", 
+                 "*://*.tiktok.com/*", "*://*.reddit.com/*", "*://*.linkedin.com/*", 
+                 "*://*.youtube.com/*", "*://*.pinterest.com/*", "*://*.snapchat.com/*", 
+                 "*://*.tumblr.com/*", "*://*.discord.com/*", "*://*.whatsapp.com/*", 
+                 "*://*.telegram.org/*", "*://*.messenger.com/*", "*://*.twitch.tv/*"],
+      "js": ["src/content-script.tsx"],
+      "run_at": "document_idle"
+    }
+  ],
+  "permissions": [
+    "storage",
+    "alarms",
+    "tabs"
+  ],
+  "host_permissions": [
+    "*://*.facebook.com/*",
+    "*://*.twitter.com/*",
+    "*://*.instagram.com/*",
+    "*://*.tiktok.com/*",
+    "*://*.reddit.com/*",
+    "*://*.linkedin.com/*",
+    "*://*.youtube.com/*",
+    "*://*.pinterest.com/*",
+    "*://*.snapchat.com/*",
+    "*://*.tumblr.com/*",
+    "*://*.discord.com/*",
+    "*://*.whatsapp.com/*",
+    "*://*.telegram.org/*",
+    "*://*.messenger.com/*",
+    "*://*.twitch.tv/*"
+  ]
+}
