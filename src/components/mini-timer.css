@@ -1,0 +1,148 @@
+.mini-timer {
+  position: fixed;
+  background-color: rgba(0, 0, 0, 0.85);
+  color: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  padding: 12px;
+  z-index: 9998;
+  width: 180px;
+  transition: all 0.3s ease;
+  pointer-events: auto;
+}
+
+.mini-timer.minimized {
+  width: auto;
+  padding: 0;
+  background-color: transparent;
+  box-shadow: none;
+}
+
+/* Positioning classes */
+.mini-timer.top-left {
+  top: 20px;
+  left: 20px;
+}
+
+.mini-timer.top-right {
+  top: 20px;
+  right: 20px;
+}
+
+.mini-timer.bottom-left {
+  bottom: 20px;
+  left: 20px;
+}
+
+.mini-timer.bottom-right {
+  bottom: 20px;
+  right: 20px;
+}
+
+.mini-timer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.mini-timer-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #f8f9fa;
+}
+
+.mini-timer-controls {
+  display: flex;
+  gap: 4px;
+}
+
+.mini-timer-minimize-btn,
+.mini-timer-config-btn {
+  background: none;
+  border: none;
+  color: #f8f9fa;
+  font-size: 16px;
+  cursor: pointer;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.mini-timer-minimize-btn:hover,
+.mini-timer-config-btn:hover {
+  color: #e53e3e;
+}
+
+.mini-timer-display {
+  font-size: 28px;
+  font-weight: bold;
+  text-align: center;
+  margin: 8px 0;
+  color: #e53e3e;
+  font-family: monospace;
+}
+
+.mini-timer-config {
+  background-color: #2d3748;
+  border-radius: 4px;
+  padding: 10px;
+  margin-top: 10px;
+}
+
+.config-label {
+  display: block;
+  font-size: 12px;
+  color: #a0aec0;
+  margin-bottom: 4px;
+}
+
+.position-select {
+  width: 100%;
+  background-color: #1a202c;
+  color: white;
+  border: 1px solid #4a5568;
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-size: 12px;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%23a0aec0' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E");
+  background-position: right 8px center;
+  background-repeat: no-repeat;
+  background-size: 16px 16px;
+  cursor: pointer;
+}
+
+.position-select:focus {
+  outline: none;
+  border-color: #e53e3e;
+}
+
+.mini-timer-expand-btn {
+  background-color: rgba(229, 62, 62, 0.9);
+  color: white;
+  border: none;
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  font-family: monospace;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(229, 62, 62, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(229, 62, 62, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(229, 62, 62, 0);
+  }
+}
